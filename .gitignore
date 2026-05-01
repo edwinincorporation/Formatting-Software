@@ -1,0 +1,69 @@
+# ================================
+# Node modules (client + server)
+# ================================
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# ================================
+# Logs
+# ================================
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ================================
+# Environment variables
+# ================================
+.env
+.env.*
+client/.env
+server/.env
+
+# ================================
+# Build folders
+# ================================
+dist/
+build/
+client/dist/
+client/build/
+
+# ================================
+# Vite cache
+# ================================
+node_modules/.vite
+.vite
+
+# ================================
+# OS files
+# ================================
+.DS_Store
+Thumbs.db
+
+# ================================
+# IDE / Editor
+# ================================
+.vscode/
+.idea/
+*.swp
+
+# ================================
+# Server generated files
+# ================================
+server/uploads/
+server/outputs/
+
+# ================================
+# Python cache (formatter.py ke liye)
+# ================================
+__pycache__/
+*.pyc
+
+# ================================
+# Misc
+# ================================
+coverage/
+.cache/
+.tmp/
