@@ -1074,15 +1074,23 @@ def format_document(input_file, output_file, opts, doc_type='book'):
     else:
         # ── BOOK / RESEARCH ──
         krutidev_mode = is_krutidev(font_name)
+        black = RGBColor(0, 0, 0)
 
-        for i, para in enumerate(doc.paragraphs):
+        i = 0
+        while i < len(doc.paragraphs):
+            para = doc.paragraphs[i]
             text = para.text.strip()
             if not text:
+                i += 1
                 continue
 
             etype = detect_structure(para, i)
             if etype == 'empty':
+                i += 1
                 continue
+            
+            # Spacing rule: 4.0 spacing after every paragraph
+            space_after = 4.0
 
             if etype == 'paper_title':
                 # Research paper title: centered, large, bold, no indent
@@ -1112,19 +1120,41 @@ def format_document(input_file, output_file, opts, doc_type='book'):
                     space_before_pt=72, space_after_pt=36)
 
             elif etype == 'chapter_title':
-                apply_para_formatting(para, etype, font_name,
-                    font_size_pt=20, bold=True, color=black,
-                    align=WD_ALIGN_PARAGRAPH.CENTER,
-                    space_before_pt=48, space_after_pt=24)
+                # Handle 'Chapter 8: Title' by splitting it for books too
+                if ':' in text and text.lower().startswith('chapter'):
+                    parts = text.split(':', 1)
+                    chapter_label = parts[0].strip()
+                    chapter_title = parts[1].strip()
+                    
+                    para.text = chapter_label.upper()
+                    apply_para_formatting(para, etype, font_name,
+                        font_size_pt=20, bold=True, color=black,
+                        align=WD_ALIGN_PARAGRAPH.CENTER,
+                        space_before_pt=48, space_after_pt=0)
+                    
+                    title_para = doc.add_paragraph(chapter_title)
+                    para._p.addnext(title_para._p)
+                    
+                    apply_para_formatting(title_para, etype, font_name,
+                        font_size_pt=20, bold=True, color=black,
+                        align=WD_ALIGN_PARAGRAPH.CENTER,
+                        space_before_pt=0, space_after_pt=24)
+                    i += 2
+                    continue
+                else:
+                    apply_para_formatting(para, etype, font_name,
+                        font_size_pt=20, bold=True, color=black,
+                        align=WD_ALIGN_PARAGRAPH.CENTER,
+                        space_before_pt=48, space_after_pt=24)
 
             elif etype == 'subheading':
-                # Preserve original alignment for subheadings (some are centered in journals)
+                # Preserve original alignment for subheadings
                 orig_align = get_original_alignment(para) or WD_ALIGN_PARAGRAPH.LEFT
                 apply_para_formatting(para, etype, font_name,
                     font_size_pt=13, bold=True, color=black,
                     align=orig_align,
                     space_before_pt=14, space_after_pt=6)
-                if not krutidev_mode and ': ' in para.text:
+                if not krutidev_mode and ':' in para.text:
                     apply_bold_before_colon(para, font_name, krutidev_mode)
 
             elif etype == 'bullet':
@@ -1133,30 +1163,44 @@ def format_document(input_file, output_file, opts, doc_type='book'):
                     font_size_pt=12, bold=is_bold_para, color=black,
                     align=WD_ALIGN_PARAGRAPH.LEFT,
                     space_before_pt=0, space_after_pt=4)
-                if not krutidev_mode and ': ' in para.text and not is_bold_para:
+                if not krutidev_mode and ':' in para.text and not is_bold_para:
                     apply_bold_before_colon(para, font_name, krutidev_mode)
 
             else:  # body
+                # Sentence detection logic for indent
+                # Split by sentence markers (. ! ?) followed by space or end of string
+                sentences = re.split(r'[.!?](?:\s|$)', text)
+                # Filter out empty strings from split
+                sentences = [s for s in sentences if s.strip()]
+                
+                # Rule: Multiple sentences get indent, single sentence starts from margin
+                indent_val = Inches(0.5) if len(sentences) > 1 else None
+
                 if krutidev_mode:
                     apply_para_formatting(para, etype, font_name,
                         font_size_pt=12, bold=False, color=black,
                         align=WD_ALIGN_PARAGRAPH.LEFT,
-                        space_before_pt=0, space_after_pt=2)
+                        space_before_pt=0, space_after_pt=space_after,
+                        first_indent=indent_val)
                 else:
-                    # Preserve original alignment (justified research papers stay justified)
                     orig_align = get_original_alignment(para)
                     if orig_align in (WD_ALIGN_PARAGRAPH.JUSTIFY, None):
                         apply_clean_justify(para)
-                        final_align = para.alignment  # apply_clean_justify may set LEFT for short paras
+                        final_align = para.alignment
                     else:
                         final_align = orig_align
+                    
                     apply_para_formatting(para, etype, font_name,
                         font_size_pt=12, bold=False, color=black,
                         align=final_align,
-                        space_before_pt=0, space_after_pt=4)
-                    # Bold label before colon only for short body lines (not long body text)
-                    if ': ' in para.text and len(para.text.split()) <= 15:
+                        space_before_pt=0, space_after_pt=space_after,
+                        first_indent=indent_val)
+                    
+                    # Bold label before colon only for short lines
+                    if ':' in para.text and len(para.text.split()) <= 20:
                         apply_bold_before_colon(para, font_name, krutidev_mode)
+            
+            i += 1
 
     # 5. Headers & Footers
     header_text  = opts.get('header', '').strip()
