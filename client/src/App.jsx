@@ -82,6 +82,14 @@ const HINDI_FONTS = [
   { value: 'Nirmala UI', label: 'Nirmala UI — Clean UI' },
 ];
 
+const FONT_SIZES = [10, 11, 12, 14, 16, 18, 20, 22, 24];
+const LINE_SPACINGS = [
+  { label: '1.0 — Single', value: 1.0 },
+  { label: '1.15 — Normal', value: 1.15 },
+  { label: '1.5 — Wide', value: 1.5 },
+  { label: '2.0 — Double', value: 2.0 },
+];
+
 const PAGE_SIZES = [
   { value: 'A4', label: 'A4', desc: '210×297mm' },
   { value: 'A5', label: 'A5', desc: '148×210mm' },
@@ -810,6 +818,22 @@ export default function App() {
         }
 
         /* ── Desktop breakpoints ── */
+        @media (max-width: 539px) {
+          .type-grid { grid-template-columns: 1fr; }
+          .topnav { padding: 0 12px; }
+          .nav-brand { font-size: 0.9rem; }
+          .nav-badge { display: none; }
+          .nav-btn { padding: 6px 10px; font-size: 0.7rem; }
+          .main-content { padding: 18px 12px 60px; }
+          .page-header h1 { font-size: 1.5rem; }
+          .content-card { padding: 16px 12px; }
+          .card-title { font-size: 1.1rem; }
+          .card-subtitle { margin-left: 0; text-align: center; }
+          .content-card-header { justify-content: center; }
+          .steps-bar { padding: 10px; gap: 4px; }
+          .step-label { display: none; }
+          .step-connector { width: 20px; margin: 0 4px; }
+        }
         @media (min-width: 540px) {
           .type-grid    { grid-template-columns: repeat(2,1fr); gap: 14px; }
           .two-col      { grid-template-columns: repeat(2,1fr); }
@@ -935,7 +959,7 @@ export default function App() {
 
               {/* Font */}
               <div className="format-section blue">
-                <div className="format-section-title">🖋 Font Style</div>
+                <div className="format-section-title">🖋 Font & Typography</div>
                 <div className="two-col">
                   <div className="field-group">
                     <label className="field-label">Language <span className="optional-tag">Optional</span></label>
@@ -953,10 +977,26 @@ export default function App() {
                     </select>
                   </div>
                 </div>
+
+                <div className="two-col" style={{ marginTop: '14px' }}>
+                  <div className="field-group">
+                    <label className="field-label">Base Font Size <span className="optional-tag">Default: 12</span></label>
+                    <select className="field-input" value={formData.font_size || '12'} onChange={e => handleFieldChange('font_size', e.target.value)}>
+                      {FONT_SIZES.map(sz => <option key={sz} value={sz}>{sz} pt</option>)}
+                    </select>
+                  </div>
+                  <div className="field-group">
+                    <label className="field-label">Line Spacing <span className="optional-tag">Default: 1.15</span></label>
+                    <select className="field-input" value={formData.line_spacing || '1.15'} onChange={e => handleFieldChange('line_spacing', e.target.value)}>
+                      {LINE_SPACINGS.map(ls => <option key={ls.value} value={ls.value}>{ls.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+
                 {formData.font_style && (
                   <div className="font-preview">
                     <span>Preview:</span>
-                    <span style={{ fontFamily: formData.font_style, fontSize: '.92rem', color: '#111827' }}>
+                    <span style={{ fontFamily: formData.font_style, fontSize: `${formData.font_size || 12}px`, color: '#111827' }}>
                       {formData.font_script === 'hindi' ? 'यह एक नमूना पाठ है। The quick brown fox.' : 'The quick brown fox jumps over the lazy dog.'}
                     </span>
                   </div>

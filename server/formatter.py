@@ -198,15 +198,6 @@ KRUTIDEV_FONTS = {'Kruti Dev 010', 'Kruti Dev 011', 'Krutidev010', 'Krutidev011'
 def is_krutidev(font_name):
     return font_name and any(k.lower() in font_name.lower() for k in ['kruti', 'krutidev'])
 
-def set_font_properly(run, font_name):
-    run.font.name = font_name
-    r = run._element
-    rPr = r.get_or_add_rPr()
-    rFonts = rPr.get_or_add_rFonts()
-    # Setting 'cs' is critical for Hindi fonts like Kruti Dev and Mangal
-    for attr in ['ascii', 'hAnsi', 'eastAsia', 'cs']:
-        rFonts.set(qn(f'w:{attr}'), font_name)
-
 def set_para_font(para, font_name):
     """Set font at paragraph-level rPr."""
     pPr = para._p.get_or_add_pPr()
@@ -627,10 +618,12 @@ def format_thesis_body(doc, opts, font_name):
     """Apply thesis-specific paragraph formatting to body."""
     black  = RGBColor(0, 0, 0)
     krutidev_mode = is_krutidev(font_name)
+    base_size = float(opts.get('font_size', 12))
+    line_spacing = float(opts.get('line_spacing', 1.15))
 
-    # We need to use a while loop or a copy of the list because we might insert paragraphs
-    paras = list(doc.paragraphs)
+    # We need to use a while loop because we might insert paragraphs
     i = 0
+    prev_etype = None
     while i < len(doc.paragraphs):
         para = doc.paragraphs[i]
         text = para.text.strip()
@@ -643,8 +636,12 @@ def format_thesis_body(doc, opts, font_name):
             i += 1
             continue
 
-        # Spacing rule: 4.0 spacing after every paragraph
+        # Default spacing rule: 4.0 spacing after every paragraph
         space_after = 4.0
+        # Reduce space before if the previous paragraph was also a heading
+        space_before = 14.0
+        if etype in ['section_heading', 'subheading'] and prev_etype in ['chapter_heading', 'section_heading', 'subheading']:
+            space_before = 2.0 # Reduced spacing between headings
 
         if etype == 'chapter_heading':
             # Handle 'Chapter 8: Title' by splitting it
@@ -653,75 +650,70 @@ def format_thesis_body(doc, opts, font_name):
                 chapter_label = parts[0].strip()
                 chapter_title = parts[1].strip()
                 
-                # Update current para to be just 'CHAPTER X'
                 para.text = chapter_label.upper()
                 apply_para_formatting(para, etype, font_name,
-                    font_size_pt=14, bold=True, color=black,
+                    font_size_pt=base_size + 2, bold=True, color=black,
                     align=WD_ALIGN_PARAGRAPH.CENTER,
-                    space_before_pt=24, space_after_pt=0) # No space between label and title
+                    space_before_pt=24, space_after_pt=0,
+                    line_spacing=line_spacing)
                 
-                # Correct way to insert paragraph after:
-                # Create a temporary paragraph at the end and move its XML element
                 title_para = doc.add_paragraph(chapter_title)
                 para._p.addnext(title_para._p)
                 
                 apply_para_formatting(title_para, etype, font_name,
-                    font_size_pt=14, bold=True, color=black,
+                    font_size_pt=base_size + 2, bold=True, color=black,
                     align=WD_ALIGN_PARAGRAPH.CENTER,
-                    space_before_pt=0, space_after_pt=space_after)
-                i += 2 # Skip the newly inserted paragraph
+                    space_before_pt=0, space_after_pt=space_after,
+                    line_spacing=line_spacing)
+                i += 2
+                prev_etype = 'chapter_heading'
                 continue
             else:
-                # Normal centered chapter heading or title
                 apply_para_formatting(para, etype, font_name,
-                    font_size_pt=14, bold=True, color=black,
+                    font_size_pt=base_size + 2, bold=True, color=black,
                     align=WD_ALIGN_PARAGRAPH.CENTER,
-                    space_before_pt=24, space_after_pt=space_after)
+                    space_before_pt=24, space_after_pt=space_after,
+                    line_spacing=line_spacing)
 
         elif etype == 'section_heading':
-            # Bold, LEFT, black, 13pt
             apply_para_formatting(para, etype, font_name,
-                font_size_pt=13, bold=True, color=black,
+                font_size_pt=base_size + 1, bold=True, color=black,
                 align=WD_ALIGN_PARAGRAPH.LEFT,
-                space_before_pt=18, space_after_pt=space_after)
+                space_before_pt=space_before + 4, space_after_pt=space_after,
+                line_spacing=line_spacing)
 
         elif etype == 'subheading':
-            # Bold, LEFT, black, 12pt
             apply_para_formatting(para, etype, font_name,
-                font_size_pt=12, bold=True, color=black,
+                font_size_pt=base_size, bold=True, color=black,
                 align=WD_ALIGN_PARAGRAPH.LEFT,
-                space_before_pt=14, space_after_pt=space_after)
+                space_before_pt=space_before, space_after_pt=space_after,
+                line_spacing=line_spacing)
             if not krutidev_mode and ':' in para.text:
                 apply_bold_before_colon(para, font_name, krutidev_mode)
 
         elif etype == 'bullet':
             is_bold = is_all_bold(para)
             apply_para_formatting(para, etype, font_name,
-                font_size_pt=12, bold=is_bold, color=black,
+                font_size_pt=base_size, bold=is_bold, color=black,
                 align=WD_ALIGN_PARAGRAPH.LEFT,
-                space_before_pt=0, space_after_pt=space_after)
+                space_before_pt=0, space_after_pt=space_after,
+                line_spacing=line_spacing)
 
         else:  # body
-            if krutidev_mode:
-                apply_para_formatting(para, etype, font_name,
-                    font_size_pt=12, bold=False, color=black,
-                    align=WD_ALIGN_PARAGRAPH.LEFT,
-                    space_before_pt=0, space_after_pt=space_after)
-            else:
-                apply_clean_justify(para)
-                # Ensure left alignment for thesis body as per user request if not justified
-                final_align = para.alignment if para.alignment == WD_ALIGN_PARAGRAPH.JUSTIFY else WD_ALIGN_PARAGRAPH.LEFT
-                
-                apply_para_formatting(para, etype, font_name,
-                    font_size_pt=12, bold=False, color=black,
-                    align=final_align,
-                    space_before_pt=0, space_after_pt=space_after,
-                    first_indent=None) # Removed 0.75 tab indentation
+            apply_clean_justify(para)
+            final_align = para.alignment if para.alignment == WD_ALIGN_PARAGRAPH.JUSTIFY else WD_ALIGN_PARAGRAPH.LEFT
             
-            # Bold label before colon
+            apply_para_formatting(para, etype, font_name,
+                font_size_pt=base_size, bold=False, color=black,
+                align=final_align,
+                space_before_pt=0, space_after_pt=space_after,
+                first_indent=None,
+                line_spacing=line_spacing)
+            
             if ':' in para.text:
                 apply_bold_before_colon(para, font_name, krutidev_mode)
         
+        prev_etype = etype
         i += 1
 
 
@@ -951,14 +943,34 @@ def detect_structure(para, index):
 # JUSTIFY
 # ═══════════════════════════
 
+def set_font_properly(run, font_name, size_pt=None):
+    run.font.name = font_name
+    r = run._element
+    rPr = r.get_or_add_rPr()
+    rFonts = rPr.get_or_add_rFonts()
+    # Explicitly set all font attributes. 'cs' is vital for Hindi/Complex Scripts.
+    for attr in ['ascii', 'hAnsi', 'eastAsia', 'cs']:
+        rFonts.set(qn(f'w:{attr}'), font_name)
+    
+    if size_pt:
+        run.font.size = Pt(size_pt)
+        # Also set size in rPr for complex scripts
+        sz_cs = rPr.find(qn('w:szCs'))
+        if sz_cs is None:
+            sz_cs = OxmlElement('w:szCs')
+            rPr.append(sz_cs)
+        sz_cs.set(qn('w:val'), str(int(size_pt * 2)))
+
 def apply_clean_justify(para):
-    """Justify only long lines; short lines stay left-aligned to avoid word gaps."""
+    """Justify only long lines; short lines stay left-aligned to avoid awkward gaps."""
     text = para.text.strip()
-    word_count = len(text.split())
-    # Raised threshold: need 20+ words AND 150+ chars to justify
-    if word_count < 20 or len(text) < 150 or text.endswith(('?', ':', '!')):
+    words = text.split()
+    # Stricter thresholds: need 12+ words AND 100+ chars to justify.
+    # Also skip if it ends with punctuation that usually marks the end of a short line.
+    if len(words) < 12 or len(text) < 100 or text.endswith(('?', ':', '!', ';')):
         para.alignment = WD_ALIGN_PARAGRAPH.LEFT
         return
+
     para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
     pPr = para._p.get_or_add_pPr()
     for jc in pPr.findall(qn('w:jc')):
@@ -967,21 +979,32 @@ def apply_clean_justify(para):
     jc.set(qn('w:val'), 'both')
     pPr.append(jc)
 
-# ═══════════════════════════
-# APPLY FORMATTING
-# ═══════════════════════════
-
 def apply_para_formatting(para, etype, font_name, font_size_pt, bold, color, align,
-                           space_before_pt, space_after_pt, first_indent=None):
+                           space_before_pt, space_after_pt, first_indent=None, line_spacing=1.15):
     """Apply all formatting to a paragraph — both run-level and pPr-level."""
     set_para_font(para, font_name)
     clear_pPr_sz(para)
     set_pPr_sz(para, int(font_size_pt * 2))
 
-    # Spacing
-    para.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+    # Spacing & Line Spacing
     para.paragraph_format.space_before = Pt(space_before_pt)
     para.paragraph_format.space_after  = Pt(space_after_pt)
+    
+    # Handle line spacing (1.0, 1.15, 1.5, 2.0)
+    try:
+        ls = float(line_spacing)
+    except:
+        ls = 1.15
+
+    if ls == 1.0:
+        para.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+    elif ls == 2.0:
+        para.paragraph_format.line_spacing_rule = WD_LINE_SPACING.DOUBLE
+    else:
+        # For 1.15 or 1.5, use MULTIPLE
+        para.paragraph_format.line_spacing_rule = WD_LINE_SPACING.MULTIPLE
+        para.paragraph_format.line_spacing = ls
+
     if first_indent is not None:
         para.paragraph_format.first_line_indent = first_indent
     else:
@@ -993,8 +1016,7 @@ def apply_para_formatting(para, etype, font_name, font_size_pt, bold, color, ali
     # Run-level
     for run in para.runs:
         run.bold = bold
-        set_font_properly(run, font_name)
-        run.font.size = Pt(font_size_pt)
+        set_font_properly(run, font_name, font_size_pt)
         run.font.color.rgb = color
 
 # ═══════════════════════════
@@ -1075,8 +1097,11 @@ def format_document(input_file, output_file, opts, doc_type='book'):
         # ── BOOK / RESEARCH ──
         krutidev_mode = is_krutidev(font_name)
         black = RGBColor(0, 0, 0)
+        base_size = float(opts.get('font_size', 12))
+        line_spacing = float(opts.get('line_spacing', 1.15))
 
         i = 0
+        prev_etype = None
         while i < len(doc.paragraphs):
             para = doc.paragraphs[i]
             text = para.text.strip()
@@ -1089,35 +1114,43 @@ def format_document(input_file, output_file, opts, doc_type='book'):
                 i += 1
                 continue
             
-            # Spacing rule: 4.0 spacing after every paragraph
+            # Default spacing rule: 4.0 spacing after every paragraph
             space_after = 4.0
+            # Reduce space before if the previous paragraph was also a heading
+            space_before = 14.0
+            if etype in ['subheading'] and prev_etype in ['chapter_title', 'subheading']:
+                space_before = 2.0
 
             if etype == 'paper_title':
                 # Research paper title: centered, large, bold, no indent
                 apply_para_formatting(para, etype, font_name,
-                    font_size_pt=16, bold=True, color=black,
+                    font_size_pt=base_size + 4, bold=True, color=black,
                     align=WD_ALIGN_PARAGRAPH.CENTER,
-                    space_before_pt=6, space_after_pt=10)
+                    space_before_pt=6, space_after_pt=10,
+                    line_spacing=line_spacing)
 
             elif etype == 'author_name':
                 # Author name: centered, medium, bold
                 apply_para_formatting(para, etype, font_name,
-                    font_size_pt=13, bold=True, color=black,
+                    font_size_pt=base_size + 1, bold=True, color=black,
                     align=WD_ALIGN_PARAGRAPH.CENTER,
-                    space_before_pt=6, space_after_pt=2)
+                    space_before_pt=6, space_after_pt=2,
+                    line_spacing=line_spacing)
 
             elif etype == 'author_role':
                 # Affiliation/role: centered, normal
                 apply_para_formatting(para, etype, font_name,
-                    font_size_pt=12, bold=False, color=black,
+                    font_size_pt=base_size, bold=False, color=black,
                     align=WD_ALIGN_PARAGRAPH.CENTER,
-                    space_before_pt=0, space_after_pt=4)
+                    space_before_pt=0, space_after_pt=4,
+                    line_spacing=line_spacing)
 
             elif etype == 'title':
                 apply_para_formatting(para, etype, font_name,
-                    font_size_pt=28, bold=True, color=black,
+                    font_size_pt=base_size + 16, bold=True, color=black,
                     align=WD_ALIGN_PARAGRAPH.CENTER,
-                    space_before_pt=72, space_after_pt=36)
+                    space_before_pt=72, space_after_pt=36,
+                    line_spacing=line_spacing)
 
             elif etype == 'chapter_title':
                 # Handle 'Chapter 8: Title' by splitting it for books too
@@ -1128,78 +1161,73 @@ def format_document(input_file, output_file, opts, doc_type='book'):
                     
                     para.text = chapter_label.upper()
                     apply_para_formatting(para, etype, font_name,
-                        font_size_pt=20, bold=True, color=black,
+                        font_size_pt=base_size + 8, bold=True, color=black,
                         align=WD_ALIGN_PARAGRAPH.CENTER,
-                        space_before_pt=48, space_after_pt=0)
+                        space_before_pt=48, space_after_pt=0,
+                        line_spacing=line_spacing)
                     
                     title_para = doc.add_paragraph(chapter_title)
                     para._p.addnext(title_para._p)
                     
                     apply_para_formatting(title_para, etype, font_name,
-                        font_size_pt=20, bold=True, color=black,
+                        font_size_pt=base_size + 8, bold=True, color=black,
                         align=WD_ALIGN_PARAGRAPH.CENTER,
-                        space_before_pt=0, space_after_pt=24)
+                        space_before_pt=0, space_after_pt=24,
+                        line_spacing=line_spacing)
                     i += 2
+                    prev_etype = 'chapter_title'
                     continue
                 else:
                     apply_para_formatting(para, etype, font_name,
-                        font_size_pt=20, bold=True, color=black,
+                        font_size_pt=base_size + 8, bold=True, color=black,
                         align=WD_ALIGN_PARAGRAPH.CENTER,
-                        space_before_pt=48, space_after_pt=24)
+                        space_before_pt=48, space_after_pt=24,
+                        line_spacing=line_spacing)
 
             elif etype == 'subheading':
                 # Preserve original alignment for subheadings
                 orig_align = get_original_alignment(para) or WD_ALIGN_PARAGRAPH.LEFT
                 apply_para_formatting(para, etype, font_name,
-                    font_size_pt=13, bold=True, color=black,
+                    font_size_pt=base_size + 1, bold=True, color=black,
                     align=orig_align,
-                    space_before_pt=14, space_after_pt=6)
+                    space_before_pt=space_before, space_after_pt=6,
+                    line_spacing=line_spacing)
                 if not krutidev_mode and ':' in para.text:
                     apply_bold_before_colon(para, font_name, krutidev_mode)
 
             elif etype == 'bullet':
                 is_bold_para = is_all_bold(para)
                 apply_para_formatting(para, etype, font_name,
-                    font_size_pt=12, bold=is_bold_para, color=black,
+                    font_size_pt=base_size, bold=is_bold_para, color=black,
                     align=WD_ALIGN_PARAGRAPH.LEFT,
-                    space_before_pt=0, space_after_pt=4)
+                    space_before_pt=0, space_after_pt=4,
+                    line_spacing=line_spacing)
                 if not krutidev_mode and ':' in para.text and not is_bold_para:
                     apply_bold_before_colon(para, font_name, krutidev_mode)
 
             else:  # body
                 # Sentence detection logic for indent
-                # Split by sentence markers (. ! ?) followed by space or end of string
                 sentences = re.split(r'[.!?](?:\s|$)', text)
-                # Filter out empty strings from split
                 sentences = [s for s in sentences if s.strip()]
                 
                 # Rule: Multiple sentences get indent, single sentence starts from margin
                 indent_val = Inches(0.5) if len(sentences) > 1 else None
 
-                if krutidev_mode:
-                    apply_para_formatting(para, etype, font_name,
-                        font_size_pt=12, bold=False, color=black,
-                        align=WD_ALIGN_PARAGRAPH.LEFT,
-                        space_before_pt=0, space_after_pt=space_after,
-                        first_indent=indent_val)
-                else:
-                    orig_align = get_original_alignment(para)
-                    if orig_align in (WD_ALIGN_PARAGRAPH.JUSTIFY, None):
-                        apply_clean_justify(para)
-                        final_align = para.alignment
-                    else:
-                        final_align = orig_align
-                    
-                    apply_para_formatting(para, etype, font_name,
-                        font_size_pt=12, bold=False, color=black,
-                        align=final_align,
-                        space_before_pt=0, space_after_pt=space_after,
-                        first_indent=indent_val)
-                    
-                    # Bold label before colon only for short lines
-                    if ':' in para.text and len(para.text.split()) <= 20:
-                        apply_bold_before_colon(para, font_name, krutidev_mode)
+                apply_clean_justify(para)
+                final_align = para.alignment if para.alignment == WD_ALIGN_PARAGRAPH.JUSTIFY else WD_ALIGN_PARAGRAPH.LEFT
+
+                apply_para_formatting(para, etype, font_name,
+                    font_size_pt=base_size, bold=False, color=black,
+                    align=final_align,
+                    space_before_pt=0, space_after_pt=space_after,
+                    first_indent=indent_val,
+                    line_spacing=line_spacing)
+                
+                # Bold label before colon only for short lines
+                if ':' in para.text and len(para.text.split()) <= 20:
+                    apply_bold_before_colon(para, font_name, krutidev_mode)
             
+            prev_etype = etype
             i += 1
 
     # 5. Headers & Footers
