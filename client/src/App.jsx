@@ -69,6 +69,7 @@ const ENGLISH_FONTS = [
   { value: 'Georgia', label: 'Georgia — Editorial' },
   { value: 'Garamond', label: 'Garamond — Publishing' },
   { value: 'Cambria', label: 'Cambria — Academic' },
+  { value: 'Bookman Old Style', label: 'Bookman Old Style — Traditional' },
 ];
 
 const HINDI_FONTS = [

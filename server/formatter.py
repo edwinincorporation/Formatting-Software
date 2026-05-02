@@ -83,27 +83,22 @@ def is_bullet_para(para):
     return pPr.find(qn('w:numPr')) is not None
 
 def apply_bold_before_colon(para, font_name, krutidev_mode):
-    """If para has 'Label: rest' pattern, make text before ':' bold, rest normal."""
+    """If para has 'Label: rest' pattern or ends with ':', make text before ':' bold."""
     text = para.text
-    # Only apply if exactly one colon exists and label part is short
-    colon_idx = text.find(': ')
-    if colon_idx <= 0 or colon_idx > 60:
+    # Find colon.
+    colon_idx = text.find(':')
+    if colon_idx <= 0 or colon_idx > 80:
         return  # no colon or label too long — skip
 
-    label = text[:colon_idx + 1]   # includes ':'
-    rest  = text[colon_idx + 1:]   # starts with ' '
+    label = text[:colon_idx + 1]
+    rest  = text[colon_idx + 1:]
 
     # Clear all existing runs, rebuild with bold+normal split
     # Collect formatting from first run (size, color) before clearing
     first_run = para.runs[0] if para.runs else None
     size_pt = None
-    color   = None
     if first_run:
         size_pt = first_run.font.size
-        try:
-            color = first_run.font.color.rgb
-        except Exception:
-            color = None
 
     for run in list(para.runs):
         run._r.getparent().remove(run._r)
@@ -115,18 +110,17 @@ def apply_bold_before_colon(para, font_name, krutidev_mode):
         set_font_properly(r_bold, font_name)
         if size_pt:
             r_bold.font.size = size_pt
-        if color:
-            r_bold.font.color.rgb = color
+        r_bold.font.color.rgb = RGBColor(0, 0, 0)
 
     # Normal run: rest
-    r_rest = para.add_run(rest)
-    r_rest.bold = False
-    if not krutidev_mode:
-        set_font_properly(r_rest, font_name)
-        if size_pt:
-            r_rest.font.size = size_pt
-        if color:
-            r_rest.font.color.rgb = color
+    if rest:
+        r_rest = para.add_run(rest)
+        r_rest.bold = False
+        if not krutidev_mode:
+            set_font_properly(r_rest, font_name)
+            if size_pt:
+                r_rest.font.size = size_pt
+            r_rest.font.color.rgb = RGBColor(0, 0, 0)
 
 # def merge_split_paragraphs(doc):
 #     paras = doc.paragraphs
@@ -209,11 +203,12 @@ def set_font_properly(run, font_name):
     r = run._element
     rPr = r.get_or_add_rPr()
     rFonts = rPr.get_or_add_rFonts()
+    # Setting 'cs' is critical for Hindi fonts like Kruti Dev and Mangal
     for attr in ['ascii', 'hAnsi', 'eastAsia', 'cs']:
         rFonts.set(qn(f'w:{attr}'), font_name)
 
 def set_para_font(para, font_name):
-    """Set font at paragraph-level rPr. Skip cs override for KrutiDev fonts."""
+    """Set font at paragraph-level rPr."""
     pPr = para._p.get_or_add_pPr()
     rPr = pPr.find(qn('w:rPr'))
     if rPr is None:
@@ -325,8 +320,6 @@ def insert_title_page(doc, opts, font_name):
 def insert_thesis_title_page(doc, opts, font_name):
     """Academic thesis title page: University → Title → Student → Supervisor → Year"""
     black = RGBColor(0, 0, 0)
-    gray  = RGBColor(80, 80, 80)
-    dark  = RGBColor(30, 30, 80)
 
     title       = opts.get('title', '').strip()
     author      = opts.get('author', '').strip()
@@ -353,7 +346,7 @@ def insert_thesis_title_page(doc, opts, font_name):
             r.italic = italic
             set_font_properly(r, font_name)
             r.font.size = Pt(size)
-            r.font.color.rgb = color or black
+            r.font.color.rgb = black  # Force black
         return p
 
     def add_horizontal_rule(thick=False):
@@ -367,7 +360,7 @@ def insert_thesis_title_page(doc, opts, font_name):
         bottom.set(qn('w:val'), 'single')
         bottom.set(qn('w:sz'), '12' if thick else '6')
         bottom.set(qn('w:space'), '1')
-        bottom.set(qn('w:color'), '1C1C5A' if thick else 'AAAACC')
+        bottom.set(qn('w:color'), '000000')  # Force black
         pBdr.append(bottom)
         pPr.append(pBdr)
         return p
@@ -378,14 +371,14 @@ def insert_thesis_title_page(doc, opts, font_name):
     spacer.paragraph_format.space_after  = Pt(0)
     insert_paras.append(spacer)
 
-    # University name (large, bold, dark blue)
+    # University name (large, bold, black)
     if university:
         insert_paras.append(make_para(university, WD_ALIGN_PARAGRAPH.CENTER,
-                                      16, bold=True, color=dark, space_after=4))
+                                      16, bold=True, space_after=4))
     # Department
     if department:
         insert_paras.append(make_para(department, WD_ALIGN_PARAGRAPH.CENTER,
-                                      12, color=gray, space_after=20))
+                                      12, space_after=20))
 
     # Thick rule
     insert_paras.append(add_horizontal_rule(thick=True))
@@ -398,14 +391,14 @@ def insert_thesis_title_page(doc, opts, font_name):
 
     # "A Thesis Submitted for..." label
     insert_paras.append(make_para('A Thesis Submitted in Partial Fulfillment of the',
-                                   WD_ALIGN_PARAGRAPH.CENTER, 11, italic=True, color=gray, space_after=2))
+                                   WD_ALIGN_PARAGRAPH.CENTER, 11, italic=True, space_after=2))
     insert_paras.append(make_para('Requirements for the Degree',
-                                   WD_ALIGN_PARAGRAPH.CENTER, 11, italic=True, color=gray, space_after=24))
+                                   WD_ALIGN_PARAGRAPH.CENTER, 11, italic=True, space_after=24))
 
     # Title (biggest element)
     if title:
         insert_paras.append(make_para(title, WD_ALIGN_PARAGRAPH.CENTER,
-                                      22, bold=True, color=dark,
+                                      22, bold=True,
                                       space_before=8, space_after=28))
 
     # Thin rule
@@ -413,25 +406,25 @@ def insert_thesis_title_page(doc, opts, font_name):
 
     # Submitted by label
     insert_paras.append(make_para('Submitted by', WD_ALIGN_PARAGRAPH.CENTER,
-                                   10, italic=True, color=gray,
+                                   10, italic=True,
                                    space_before=20, space_after=4))
     # Student name
     if author:
         insert_paras.append(make_para(author, WD_ALIGN_PARAGRAPH.CENTER,
-                                      15, bold=True, color=black, space_after=4))
+                                      15, bold=True, space_after=4))
 
     # Supervisor
     if supervisor:
         insert_paras.append(make_para(f'Under the Supervision of', WD_ALIGN_PARAGRAPH.CENTER,
-                                       10, italic=True, color=gray,
+                                       10, italic=True,
                                        space_before=16, space_after=4))
         insert_paras.append(make_para(supervisor, WD_ALIGN_PARAGRAPH.CENTER,
-                                       13, bold=True, color=dark, space_after=4))
+                                       13, bold=True, space_after=4))
 
     # Year
     if year:
         insert_paras.append(make_para(year, WD_ALIGN_PARAGRAPH.CENTER,
-                                       12, color=gray, space_before=20, space_after=0))
+                                       12, space_before=20, space_after=0))
 
     # Page break
     pb_para = doc.add_paragraph()
@@ -582,7 +575,7 @@ def insert_letter_header(doc, opts, font_name):
 # THESIS BODY FORMATTING
 # ═══════════════════════════
 
-def detect_thesis_structure(para, index):
+def detect_thesis_structure(para, index, doc):
     """Thesis-aware structure detection."""
     text  = para.text.strip()
     words = text.split()
@@ -595,6 +588,16 @@ def detect_thesis_structure(para, index):
 
     is_bold = is_all_bold(para)
 
+    # Chapter detection (matches 'Chapter 8' or 'Chapter 8: Title')
+    if text.lower().startswith('chapter') and wc <= 15:
+        return 'chapter_heading'
+    
+    # Check if this paragraph is a chapter title (follows a chapter heading)
+    if index > 0:
+        prev_para = doc.paragraphs[index-1]
+        if prev_para.text.strip().lower().startswith('chapter') and len(prev_para.text.split()) <= 4 and wc <= 10:
+            return 'chapter_heading'
+
     # Abstract / Keywords / References as special headings
     special_sections = ['abstract', 'introduction', 'conclusion', 'references',
                         'bibliography', 'acknowledgement', 'appendix', 'keywords',
@@ -604,9 +607,6 @@ def detect_thesis_structure(para, index):
 
     # Numbered section: 1. or 1.1 or 1.1.1
     if re.match(r'^\d+(\.\d+)*[\.\s]', text) and is_bold and wc <= 15:
-        depth = len(re.match(r'^(\d+(\.\d+)*)', text).group(1).split('.'))
-        if depth == 1:
-            return 'section_heading'
         return 'subheading'
 
     # ALL CAPS short = section heading
@@ -626,32 +626,72 @@ def detect_thesis_structure(para, index):
 def format_thesis_body(doc, opts, font_name):
     """Apply thesis-specific paragraph formatting to body."""
     black  = RGBColor(0, 0, 0)
-    dark   = RGBColor(20, 20, 80)
-    gray   = RGBColor(80, 80, 80)
     krutidev_mode = is_krutidev(font_name)
 
-    for i, para in enumerate(doc.paragraphs):
+    # We need to use a while loop or a copy of the list because we might insert paragraphs
+    paras = list(doc.paragraphs)
+    i = 0
+    while i < len(doc.paragraphs):
+        para = doc.paragraphs[i]
         text = para.text.strip()
         if not text:
+            i += 1
             continue
 
-        etype = detect_thesis_structure(para, i)
+        etype = detect_thesis_structure(para, i, doc)
         if etype == 'empty':
+            i += 1
             continue
 
-        if etype == 'section_heading':
-            # Bold, centered, dark blue, 14pt with top spacing
+        # Spacing rule: 4.0 spacing after every paragraph
+        space_after = 4.0
+
+        if etype == 'chapter_heading':
+            # Handle 'Chapter 8: Title' by splitting it
+            if ':' in text and text.lower().startswith('chapter'):
+                parts = text.split(':', 1)
+                chapter_label = parts[0].strip()
+                chapter_title = parts[1].strip()
+                
+                # Update current para to be just 'CHAPTER X'
+                para.text = chapter_label.upper()
+                apply_para_formatting(para, etype, font_name,
+                    font_size_pt=14, bold=True, color=black,
+                    align=WD_ALIGN_PARAGRAPH.CENTER,
+                    space_before_pt=24, space_after_pt=0) # No space between label and title
+                
+                # Correct way to insert paragraph after:
+                # Create a temporary paragraph at the end and move its XML element
+                title_para = doc.add_paragraph(chapter_title)
+                para._p.addnext(title_para._p)
+                
+                apply_para_formatting(title_para, etype, font_name,
+                    font_size_pt=14, bold=True, color=black,
+                    align=WD_ALIGN_PARAGRAPH.CENTER,
+                    space_before_pt=0, space_after_pt=space_after)
+                i += 2 # Skip the newly inserted paragraph
+                continue
+            else:
+                # Normal centered chapter heading or title
+                apply_para_formatting(para, etype, font_name,
+                    font_size_pt=14, bold=True, color=black,
+                    align=WD_ALIGN_PARAGRAPH.CENTER,
+                    space_before_pt=24, space_after_pt=space_after)
+
+        elif etype == 'section_heading':
+            # Bold, LEFT, black, 13pt
             apply_para_formatting(para, etype, font_name,
-                font_size_pt=14, bold=True, color=dark,
-                align=WD_ALIGN_PARAGRAPH.CENTER,
-                space_before_pt=24, space_after_pt=12)
+                font_size_pt=13, bold=True, color=black,
+                align=WD_ALIGN_PARAGRAPH.LEFT,
+                space_before_pt=18, space_after_pt=space_after)
 
         elif etype == 'subheading':
+            # Bold, LEFT, black, 12pt
             apply_para_formatting(para, etype, font_name,
-                font_size_pt=12, bold=True, color=dark,
+                font_size_pt=12, bold=True, color=black,
                 align=WD_ALIGN_PARAGRAPH.LEFT,
-                space_before_pt=14, space_after_pt=6)
-            if not krutidev_mode and ': ' in para.text:
+                space_before_pt=14, space_after_pt=space_after)
+            if not krutidev_mode and ':' in para.text:
                 apply_bold_before_colon(para, font_name, krutidev_mode)
 
         elif etype == 'bullet':
@@ -659,24 +699,30 @@ def format_thesis_body(doc, opts, font_name):
             apply_para_formatting(para, etype, font_name,
                 font_size_pt=12, bold=is_bold, color=black,
                 align=WD_ALIGN_PARAGRAPH.LEFT,
-                space_before_pt=0, space_after_pt=4)
+                space_before_pt=0, space_after_pt=space_after)
 
-        else:  # body — double-spaced for thesis
+        else:  # body
             if krutidev_mode:
                 apply_para_formatting(para, etype, font_name,
                     font_size_pt=12, bold=False, color=black,
                     align=WD_ALIGN_PARAGRAPH.LEFT,
-                    space_before_pt=0, space_after_pt=2)
+                    space_before_pt=0, space_after_pt=space_after)
             else:
-                # Thesis uses double spacing + justified
                 apply_clean_justify(para)
+                # Ensure left alignment for thesis body as per user request if not justified
+                final_align = para.alignment if para.alignment == WD_ALIGN_PARAGRAPH.JUSTIFY else WD_ALIGN_PARAGRAPH.LEFT
+                
                 apply_para_formatting(para, etype, font_name,
                     font_size_pt=12, bold=False, color=black,
-                    align=para.alignment,
-                    space_before_pt=0, space_after_pt=0,
-                    first_indent=Inches(0.5))
-                # Override line spacing to double
-                para.paragraph_format.line_spacing_rule = WD_LINE_SPACING.DOUBLE
+                    align=final_align,
+                    space_before_pt=0, space_after_pt=space_after,
+                    first_indent=None) # Removed 0.75 tab indentation
+            
+            # Bold label before colon
+            if ':' in para.text:
+                apply_bold_before_colon(para, font_name, krutidev_mode)
+        
+        i += 1
 
 
 # ═══════════════════════════
@@ -928,13 +974,9 @@ def apply_clean_justify(para):
 def apply_para_formatting(para, etype, font_name, font_size_pt, bold, color, align,
                            space_before_pt, space_after_pt, first_indent=None):
     """Apply all formatting to a paragraph — both run-level and pPr-level."""
-    # For KrutiDev (legacy Hindi), don't override fonts — only apply spacing/alignment
-    krutidev_mode = is_krutidev(font_name)
-
-    if not krutidev_mode:
-        set_para_font(para, font_name)
-        clear_pPr_sz(para)
-        set_pPr_sz(para, int(font_size_pt * 2))
+    set_para_font(para, font_name)
+    clear_pPr_sz(para)
+    set_pPr_sz(para, int(font_size_pt * 2))
 
     # Spacing
     para.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
@@ -950,21 +992,10 @@ def apply_para_formatting(para, etype, font_name, font_size_pt, bold, color, ali
 
     # Run-level
     for run in para.runs:
-        if krutidev_mode:
-            # Preserve run's original font — only fix cs attribute to match ascii/hAnsi
-            r = run._element
-            rPr = r.get_or_add_rPr()
-            rFonts = rPr.find(qn('w:rFonts'))
-            if rFonts is not None:
-                orig = rFonts.get(qn('w:ascii')) or rFonts.get(qn('w:hAnsi'))
-                if orig and is_krutidev(orig):
-                    # Set cs = same as ascii so Word uses KrutiDev not Arial Unicode
-                    rFonts.set(qn('w:cs'), orig)
-        else:
-            run.bold = bold
-            set_font_properly(run, font_name)
-            run.font.size = Pt(font_size_pt)
-            run.font.color.rgb = color
+        run.bold = bold
+        set_font_properly(run, font_name)
+        run.font.size = Pt(font_size_pt)
+        run.font.color.rgb = color
 
 # ═══════════════════════════
 # MAIN
@@ -1003,7 +1034,7 @@ def format_document(input_file, output_file, opts, doc_type='book'):
         if doc_type == 'thesis':
             section.top_margin    = Inches(1.0)
             section.bottom_margin = Inches(1.0)
-            section.left_margin   = Inches(1.5)
+            section.left_margin   = Inches(1.0)
             section.right_margin  = Inches(1.0)
         elif doc_type == 'letter':
             # Preserve original margins for letters with embedded letterhead/images
