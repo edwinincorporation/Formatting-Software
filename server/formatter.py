@@ -195,23 +195,191 @@ def preprocess_document(doc):
 KRUTIDEV_FONTS = {'Kruti Dev 010', 'Kruti Dev 011', 'Krutidev010', 'Krutidev011',
                   'KrutiDev010', 'KrutiDev011', 'Kruti Dev010', 'Kruti Dev011'}
 
+# Mapping UI values to exact Windows font names
+FONT_NAME_MAP = {
+    'Krutidev010': 'Kruti Dev 010',
+    'Krutidev011': 'Kruti Dev 011',
+    'Mangal': 'Mangal',
+    'Kokila': 'Kokila',
+    'Utsaah': 'Utsaah',
+    'Aparajita': 'Aparajita',
+    'Nirmala UI': 'Nirmala UI'
+}
+
+# ═══════════════════════════
+# HINDI CONVERSION (UNICODE TO KRUTIDEV)
+# ═══════════════════════════
+
+def unicode_to_krutidev(text):
+    if not text: return ""
+    
+    # Check if text contains any Unicode Hindi characters. If not, return as is.
+    if not re.search(r'[\u0900-\u097F]', text):
+        return text
+
+    # Standard mapping for Unicode to Kruti Dev 010
+    # This is a simplified version of standard transliteration logic
+    array_unicode = [
+        "क़", "ख़", "ग़", "ज़", "ड़", "ढ़", "फ़", "य़", "ऱ", "ऩ", 
+        "ा", "ि", "ी", "ु", "ू", "ृ", "े", "ै", "ो", "ौ", "ं", "ः", "ँ",
+        "०", "१", "२", "३", "४", "५", "६", "७", "८", "९",
+        "अ", "आ", "इ", "ई", "उ", "ऊ", "ऋ", "ए", "ऐ", "ओ", "औ",
+        "क", "ख", "ग", "घ", "ङ",
+        "च", "छ", "ज", "झ", "ञ",
+        "ट", "ठ", "ड", "ढ", "ण",
+        "त", "थ", "द", "ध", "न",
+        "प", "फ", "ब", "भ", "म",
+        "य", "र", "ल", "व", "श", "ष", "स", "ह",
+        "क्ष", "त्र", "ज्ञ", "श्र", "ज्ञ",
+        "।", "॥", "्", "‍"
+    ]
+    
+    array_krutidev = [
+        "क़", "ख़", "ग़", "ज़", "ड़", "ढ़", "फ़", "य़", "ऱ", "ऩ",
+        "k", "f", "h", "q", "w", "=", "s", "S", "ks", "kS", "a", "A", "¡",
+        ")", "!", "@", "#", "$", "%", "^", "&", "*", "(",
+        "v", "vk", " b", "bZ", "m", "Å", "½", "vks", "vS", "vks", "vS",
+        "d", "[k", "x", "?", "³",
+        "p", "N", "t", "÷", "¥",
+        "V", "B", "M", "<", ".k",
+        "r", "Fk", "n", "èk", "u",
+        "i", "Q", "c", "Hk", "e",
+        "य", "j", "y", "o", "श", "ष", "l", "ह",
+        "़", "त्र", "ज्ञ", "श्र", "ज्ञ",
+        "P", "Q", "्", ""
+    ]
+
+    # This is a complex process. For a robust implementation, we need 
+    # specific rules for matras that come before characters (like 'i').
+    
+    # 1. Simple replacements
+    modified_text = text
+    
+    # Handle nukta characters first
+    modified_text = modified_text.replace("क़", "d+").replace("ख़", "[k+").replace("ग़", "x+").replace("ज़", "t+").replace("ड़", "M+").replace("ढ़", "<+").replace("फ़", "i+").replace("य़", "य़")
+    
+    # Handle composite characters
+    modified_text = modified_text.replace("क्ष", "d" + "़").replace("त्र", "=").replace("ज्ञ", "K").replace("श्र", "श" + "्" + "j")
+    
+    # Character by character map (basic)
+    # Note: Full robust conversion requires rule-based reordering for 'i' matra, etc.
+    # We will implement the most common ones.
+    
+    mapping = {
+        '।': 'A', '॥': 'AA', '्': '्', 
+        'ा': 'k', 'ि': 'f', 'ी': 'h', 'ु': 'q', 'ू': 'w', 'ृ': '=', 'े': 's', 'ै': 'S', 'ो': 'ks', 'ौ': 'kS', 'ं': 'a', 'ः': '%', 'ँ': '¡',
+        'अ': 'v', 'आ': 'vk', 'इ': 'b', 'ई': 'bZ', 'उ': 'm', 'ऊ': 'Å', 'ए': 's', 'ऐ': 'S', 'ओ': 'vks', 'औ': 'vS',
+        'क': 'd', 'ख': '[k', 'ग': 'x', 'घ': '?', 'ङ': '³',
+        'च': 'p', 'छ': 'N', 'ज': 't', 'झ': '÷', 'ञ': '¥',
+        'ट': 'V', 'ठ': 'B', 'ड': 'M', 'ढ': '<', 'ण': '.k',
+        'त': 'r', 'थ': 'Fk', 'द': 'n', 'ध': 'èk', 'न': 'u',
+        'प': 'i', 'फ': 'Q', 'ब': 'c', 'भ': 'Hk', 'म': 'e',
+        'य': ';', 'र': 'j', 'ल': 'y', 'व': 'o', 'श': 'श', 'ष': 'ष', 'स': 'l', 'ह': 'g',
+        '०': ')', '१': '!', '२': '@', '३': '#', '४': '$', '५': '%', '६': '^', '७': '&', '८': '*', '९': '('
+    }
+
+    # Rule-based conversion for Kruti Dev (Complex)
+    # 1. Handle 'i' matra (Chhoti ee) which comes BEFORE the consonant in Kruti Dev
+    # Regex to find (Consonant)(Matra 'i') and swap them
+    modified_text = re.sub(r'([\u0915-\u0939])\u093f', r'f\1', modified_text)
+    # Handle half consonants + 'i' matra
+    modified_text = re.sub(r'([\u0915-\u0939])\u094d([\u0915-\u0939])\u093f', r'f\1\u094d\2', modified_text)
+
+    # 2. Map characters
+    res = ""
+    for char in modified_text:
+        res += mapping.get(char, char)
+    
+    # 3. Handle Halant (Half characters)
+    # In Kruti Dev, half characters are often different glyphs.
+    # d + ् -> d (different key for half k)
+    # This part is highly font-specific. For Krutidev010:
+    res = res.replace("d्", "D").replace("[k्", "K").replace("x्", "X").replace("?्", "ഘ").replace("p्", "P").replace("t्", "T").replace("r्", "R").replace("Fk्", "f").replace("n्", "N").replace("èk्", "E").replace("u्", "U").replace("i्", "I").replace("Q्", "q").replace("c्", "C").replace("Hk्", "h").replace("e्", "E").replace(";्", "Y").replace("y्", "L").replace("o्", "O").replace("l्", "L")
+    
+    # Basic cleanup
+    res = res.replace("्", "") # Remove remaining halants
+    
+    return res
+
 def is_krutidev(font_name):
     return font_name and any(k.lower() in font_name.lower() for k in ['kruti', 'krutidev'])
 
+def set_font_properly(run, font_name, size_pt=None):
+    # Map to formal name if exists
+    formal_name = FONT_NAME_MAP.get(font_name, font_name)
+    run.font.name = formal_name
+    
+    r = run._element
+    rPr = r.get_or_add_rPr()
+    
+    # 1. Set Fonts
+    rFonts = rPr.get_or_add_rFonts()
+    # Kruti Dev is a legacy Western font. Setting 'hint' to 'default' is crucial.
+    if is_krutidev(formal_name):
+        rFonts.set(qn('w:hint'), 'default')
+    else:
+        rFonts.set(qn('w:hint'), 'complex')
+
+    for attr in ['ascii', 'hAnsi', 'eastAsia', 'cs']:
+        rFonts.set(qn(f'w:{attr}'), formal_name)
+    
+    # 2. Set Language (Crucial Fix)
+    # If Kruti Dev, we MUST tell Word it is English/Latin so it doesn't fall back to Arial Unicode
+    lang = rPr.find(qn('w:lang'))
+    if lang is None:
+        lang = OxmlElement('w:lang')
+        rPr.append(lang)
+    
+    if is_krutidev(formal_name):
+        # Force Latin/Western IDs
+        lang.set(qn('w:val'), 'en-US')
+        lang.set(qn('w:ascii'), 'en-US')
+        lang.set(qn('w:hAnsi'), 'en-US')
+        lang.set(qn('w:bidi'), 'hi-IN') # Bi-directional as secondary
+    else:
+        lang.set(qn('w:val'), 'hi-IN')
+        lang.set(qn('w:cs'), 'hi-IN')
+
+    # 3. Set Size
+    if size_pt:
+        run.font.size = Pt(size_pt)
+        # Also set size in rPr for complex scripts/CS
+        sz_cs = rPr.find(qn('w:szCs'))
+        if sz_cs is None:
+            sz_cs = OxmlElement('w:szCs')
+            rPr.append(sz_cs)
+        sz_cs.set(qn('w:val'), str(int(size_pt * 2)))
+
 def set_para_font(para, font_name):
     """Set font at paragraph-level rPr."""
+    formal_name = FONT_NAME_MAP.get(font_name, font_name)
     pPr = para._p.get_or_add_pPr()
     rPr = pPr.find(qn('w:rPr'))
     if rPr is None:
         rPr = OxmlElement('w:rPr')
         pPr.append(rPr)
+    
     rFonts = rPr.find(qn('w:rFonts'))
     if rFonts is None:
         rFonts = OxmlElement('w:rFonts')
         rPr.insert(0, rFonts)
+    
+    if is_krutidev(formal_name):
+        rFonts.set(qn('w:hint'), 'default')
+    
     attrs = ['ascii', 'hAnsi', 'eastAsia', 'cs']
     for attr in attrs:
-        rFonts.set(qn(f'w:{attr}'), font_name)
+        rFonts.set(qn(f'w:{attr}'), formal_name)
+    
+    # Set Language at para level too
+    lang = rPr.find(qn('w:lang'))
+    if lang is None:
+        lang = OxmlElement('w:lang')
+        rPr.append(lang)
+    if is_krutidev(formal_name):
+        lang.set(qn('w:val'), 'en-US')
+    else:
+        lang.set(qn('w:val'), 'hi-IN')
 
 def add_run_with_font(para, text, font_name, size_pt, bold=False, color=None):
     run = para.add_run(text)
@@ -638,6 +806,18 @@ def format_thesis_body(doc, opts, font_name):
 
         # Default spacing rule: 4.0 spacing after every paragraph
         space_after = 4.0
+        
+        # Look ahead to see if next paragraph is body/bullet
+        next_etype = None
+        if i < len(doc.paragraphs) - 1:
+            next_para = doc.paragraphs[i+1]
+            if next_para.text.strip():
+                next_etype = detect_thesis_structure(next_para, i+1, doc)
+        
+        # If heading is followed by body or bullet, reduce space_after
+        if etype in ['section_heading', 'subheading'] and next_etype in ['body', 'bullet']:
+            space_after = 2.0
+
         # Reduce space before if the previous paragraph was also a heading
         space_before = 14.0
         if etype in ['section_heading', 'subheading'] and prev_etype in ['chapter_heading', 'section_heading', 'subheading']:
@@ -890,7 +1070,7 @@ def get_original_alignment(para):
     return mapping.get(val)
 
 
-def detect_structure(para, index):
+def detect_structure(para, index, doc=None):
     """Detect paragraph type. Bullet paragraphs are always 'bullet'."""
     text  = para.text.strip()
     words = text.split()
@@ -902,6 +1082,10 @@ def detect_structure(para, index):
     # Bullet list items — NEVER treat as heading regardless of bold
     if is_bullet_para(para):
         return 'bullet'
+    
+    # High Priority: The very first non-empty paragraph of a book is often the title/chapter name
+    if index == 0 and wc <= 15:
+        return 'chapter_title'
 
     if wc > 20:
         return 'body'
@@ -909,17 +1093,9 @@ def detect_structure(para, index):
     is_bold = is_all_bold(para)
     orig_align = get_original_alignment(para)
 
-    # Research paper / journal: short centered bold = paper_title or author_block
-    if orig_align == WD_ALIGN_PARAGRAPH.CENTER:
-        if index == 0 and wc <= 25 and is_bold:
-            return 'paper_title'         # Paper title (bold, centered, first)
-        if index <= 10 and wc <= 12 and is_bold:
-            return 'author_name'         # Author name (bold, centered, early)
-        if index <= 10 and wc <= 8:
-            return 'author_role'         # Role/affiliation (not bold, centered)
-
+    # Chapter detection (matches 'Chapter 8' or 'Chapter 8: Title' or common Hindi markers)
     chapter_regex = r'^(chapter|unit|part|section|lesson|adhyaay|\u0905\u0927\u094d\u092f\u093e\u092f|\u0907\u0915\u093e\u0908|\u092d\u093e\u0917)\s*([\dIVX]+)?'
-    if re.match(chapter_regex, text.lower()):
+    if re.match(chapter_regex, text.lower()) and wc <= 15:
         return 'chapter_title'
 
     if re.match(r'^\d+(\.\d+)*[\.\s]', text) and is_bold and wc <= 12:
@@ -1047,6 +1223,23 @@ def format_document(input_file, output_file, opts, doc_type='book'):
     # 1. Pre-clean
     preprocess_document(doc)
 
+    # 1b. High Priority: Hindi Unicode to Kruti Dev Conversion Pass
+    # If the user selected Kruti Dev, we MUST convert the underlying character codes
+    if is_krutidev(font_name):
+        for para in doc.paragraphs:
+            # Convert paragraph text while preserving runs if possible
+            for run in para.runs:
+                if run.text.strip():
+                    run.text = unicode_to_krutidev(run.text)
+        # Also handle tables
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    for para in cell.paragraphs:
+                        for run in para.runs:
+                            if run.text.strip():
+                                run.text = unicode_to_krutidev(run.text)
+
     # 2. Page Size — thesis wider left margin for binding; letter tighter
     page_size_key = opts.get('page_size', 'A4')
     page_w, page_h = PAGE_SIZE_MAP.get(page_size_key, PAGE_SIZE_MAP['A4'])
@@ -1109,13 +1302,25 @@ def format_document(input_file, output_file, opts, doc_type='book'):
                 i += 1
                 continue
 
-            etype = detect_structure(para, i)
+            etype = detect_structure(para, i, doc)
             if etype == 'empty':
                 i += 1
                 continue
             
             # Default spacing rule: 4.0 spacing after every paragraph
             space_after = 4.0
+            
+            # Look ahead to see if next paragraph is body/bullet
+            next_etype = None
+            if i < len(doc.paragraphs) - 1:
+                next_para = doc.paragraphs[i+1]
+                if next_para.text.strip():
+                    next_etype = detect_structure(next_para, i+1, doc)
+            
+            # If subheading is followed by body or bullet, reduce space_after
+            if etype == 'subheading' and next_etype in ['body', 'bullet']:
+                space_after = 2.0
+
             # Reduce space before if the previous paragraph was also a heading
             space_before = 14.0
             if etype in ['subheading'] and prev_etype in ['chapter_title', 'subheading']:
