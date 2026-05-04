@@ -814,14 +814,15 @@ def format_thesis_body(doc, opts, font_name):
             if next_para.text.strip():
                 next_etype = detect_thesis_structure(next_para, i+1, doc)
         
-        # If heading is followed by body or bullet, reduce space_after
-        if etype in ['section_heading', 'subheading'] and next_etype in ['body', 'bullet']:
-            space_after = 2.0
+        # If heading is followed by another heading, body or bullet, reduce space_after
+        if etype in ['chapter_heading', 'section_heading', 'subheading'] and \
+           next_etype in ['chapter_heading', 'section_heading', 'subheading', 'body', 'bullet']:
+            space_after = 0.0
 
         # Reduce space before if the previous paragraph was also a heading
         space_before = 14.0
         if etype in ['section_heading', 'subheading'] and prev_etype in ['chapter_heading', 'section_heading', 'subheading']:
-            space_before = 2.0 # Reduced spacing between headings
+            space_before = 0.0 # Reduced spacing between headings
 
         if etype == 'chapter_heading':
             # Handle 'Chapter 8: Title' by splitting it
@@ -835,7 +836,7 @@ def format_thesis_body(doc, opts, font_name):
                     font_size_pt=base_size + 2, bold=True, color=black,
                     align=WD_ALIGN_PARAGRAPH.CENTER,
                     space_before_pt=24, space_after_pt=0,
-                    line_spacing=line_spacing)
+                    line_spacing=1.0)
                 
                 title_para = doc.add_paragraph(chapter_title)
                 para._p.addnext(title_para._p)
@@ -844,7 +845,7 @@ def format_thesis_body(doc, opts, font_name):
                     font_size_pt=base_size + 2, bold=True, color=black,
                     align=WD_ALIGN_PARAGRAPH.CENTER,
                     space_before_pt=0, space_after_pt=space_after,
-                    line_spacing=line_spacing)
+                    line_spacing=1.0)
                 i += 2
                 prev_etype = 'chapter_heading'
                 continue
@@ -853,21 +854,21 @@ def format_thesis_body(doc, opts, font_name):
                     font_size_pt=base_size + 2, bold=True, color=black,
                     align=WD_ALIGN_PARAGRAPH.CENTER,
                     space_before_pt=24, space_after_pt=space_after,
-                    line_spacing=line_spacing)
+                    line_spacing=1.0)
 
         elif etype == 'section_heading':
             apply_para_formatting(para, etype, font_name,
                 font_size_pt=base_size + 1, bold=True, color=black,
                 align=WD_ALIGN_PARAGRAPH.LEFT,
                 space_before_pt=space_before + 4, space_after_pt=space_after,
-                line_spacing=line_spacing)
+                line_spacing=1.0)
 
         elif etype == 'subheading':
             apply_para_formatting(para, etype, font_name,
                 font_size_pt=base_size, bold=True, color=black,
                 align=WD_ALIGN_PARAGRAPH.LEFT,
                 space_before_pt=space_before, space_after_pt=space_after,
-                line_spacing=line_spacing)
+                line_spacing=1.0)
             if not krutidev_mode and ':' in para.text:
                 apply_bold_before_colon(para, font_name, krutidev_mode)
 
@@ -880,6 +881,10 @@ def format_thesis_body(doc, opts, font_name):
                 line_spacing=line_spacing)
 
         else:  # body
+            # If body is followed by bullet, set space_after to 0
+            if next_etype == 'bullet':
+                space_after = 0.0
+
             apply_clean_justify(para)
             final_align = para.alignment if para.alignment == WD_ALIGN_PARAGRAPH.JUSTIFY else WD_ALIGN_PARAGRAPH.LEFT
             
@@ -1317,14 +1322,15 @@ def format_document(input_file, output_file, opts, doc_type='book'):
                 if next_para.text.strip():
                     next_etype = detect_structure(next_para, i+1, doc)
             
-            # If subheading is followed by body or bullet, reduce space_after
-            if etype == 'subheading' and next_etype in ['body', 'bullet']:
-                space_after = 2.0
+            # If heading is followed by another heading, body or bullet, reduce space_after
+            if etype in ['chapter_title', 'subheading'] and \
+               next_etype in ['chapter_title', 'subheading', 'body', 'bullet']:
+                space_after = 0.0
 
             # Reduce space before if the previous paragraph was also a heading
             space_before = 14.0
             if etype in ['subheading'] and prev_etype in ['chapter_title', 'subheading']:
-                space_before = 2.0
+                space_before = 0.0
 
             if etype == 'paper_title':
                 # Research paper title: centered, large, bold, no indent
@@ -1355,9 +1361,13 @@ def format_document(input_file, output_file, opts, doc_type='book'):
                     font_size_pt=base_size + 16, bold=True, color=black,
                     align=WD_ALIGN_PARAGRAPH.CENTER,
                     space_before_pt=72, space_after_pt=36,
-                    line_spacing=line_spacing)
+                    line_spacing=1.0)
 
             elif etype == 'chapter_title':
+                # Default chapter spacing if not followed by another heading/body
+                if space_after != 0.0:
+                    space_after = 24.0
+
                 # Handle 'Chapter 8: Title' by splitting it for books too
                 if ':' in text and text.lower().startswith('chapter'):
                     parts = text.split(':', 1)
@@ -1369,7 +1379,7 @@ def format_document(input_file, output_file, opts, doc_type='book'):
                         font_size_pt=base_size + 8, bold=True, color=black,
                         align=WD_ALIGN_PARAGRAPH.CENTER,
                         space_before_pt=48, space_after_pt=0,
-                        line_spacing=line_spacing)
+                        line_spacing=1.0)
                     
                     title_para = doc.add_paragraph(chapter_title)
                     para._p.addnext(title_para._p)
@@ -1377,8 +1387,8 @@ def format_document(input_file, output_file, opts, doc_type='book'):
                     apply_para_formatting(title_para, etype, font_name,
                         font_size_pt=base_size + 8, bold=True, color=black,
                         align=WD_ALIGN_PARAGRAPH.CENTER,
-                        space_before_pt=0, space_after_pt=24,
-                        line_spacing=line_spacing)
+                        space_before_pt=0, space_after_pt=space_after,
+                        line_spacing=1.0)
                     i += 2
                     prev_etype = 'chapter_title'
                     continue
@@ -1386,8 +1396,8 @@ def format_document(input_file, output_file, opts, doc_type='book'):
                     apply_para_formatting(para, etype, font_name,
                         font_size_pt=base_size + 8, bold=True, color=black,
                         align=WD_ALIGN_PARAGRAPH.CENTER,
-                        space_before_pt=48, space_after_pt=24,
-                        line_spacing=line_spacing)
+                        space_before_pt=48, space_after_pt=space_after,
+                        line_spacing=1.0)
 
             elif etype == 'subheading':
                 # Preserve original alignment for subheadings
@@ -1396,7 +1406,7 @@ def format_document(input_file, output_file, opts, doc_type='book'):
                     font_size_pt=base_size + 1, bold=True, color=black,
                     align=orig_align,
                     space_before_pt=space_before, space_after_pt=6,
-                    line_spacing=line_spacing)
+                    line_spacing=1.0)
                 if not krutidev_mode and ':' in para.text:
                     apply_bold_before_colon(para, font_name, krutidev_mode)
 
@@ -1411,6 +1421,10 @@ def format_document(input_file, output_file, opts, doc_type='book'):
                     apply_bold_before_colon(para, font_name, krutidev_mode)
 
             else:  # body
+                # If body is followed by bullet, set space_after to 0
+                if next_etype == 'bullet':
+                    space_after = 0.0
+
                 # Sentence detection logic for indent
                 sentences = re.split(r'[.!?](?:\s|$)', text)
                 sentences = [s for s in sentences if s.strip()]
