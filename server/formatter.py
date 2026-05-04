@@ -283,7 +283,7 @@ def unicode_to_krutidev(text):
     # Regex to find (Consonant)(Matra 'i') and swap them
     modified_text = re.sub(r'([\u0915-\u0939])\u093f', r'f\1', modified_text)
     # Handle half consonants + 'i' matra
-    modified_text = re.sub(r'([\u0915-\u0939])\u094d([\u0915-\u0939])\u093f', r'f\1\u094d\2', modified_text)
+    modified_text = re.sub(r'([\u0915-\u0939])\u094d([\u0915-\u0939])\u093f', r'f\1' + '\u094d' + r'\2', modified_text)
 
     # 2. Map characters
     res = ""
